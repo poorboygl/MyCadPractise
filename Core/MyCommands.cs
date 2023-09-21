@@ -1,19 +1,49 @@
 ﻿using Autodesk.AutoCAD.Runtime;
 using Aaa =Autodesk.AutoCAD.ApplicationServices;
-using Autodesk.AutoCAD.DatabaseServices;
-using System.Windows;
-using System.Collections;
 using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.ApplicationServices;
 using Core.MyAutoCadAPI;
 using System.Collections.Generic;
+using Autodesk.AutoCAD.DatabaseServices;
 
 namespace Core
 {
     public class MyCommands
     {
         Provider provider = new Provider();
+        [CommandMethod("getACadFields")]
+        public void GetACadFields()
+        {
+            Document doc = Aaa.Application.DocumentManager.MdiActiveDocument;
+            Database db = doc.Database;
+            Editor edt = doc.Editor;
+            string drawingName = "";
+            string layoutname = "";
+
+
+            using (Transaction transaction = db.TransactionManager.StartTransaction())
+            {
+                try
+                {
+                    edt.WriteMessage($"\nGetProperties ACAD");
+                    int lastSlashIndex = doc.Name.LastIndexOf("\\");
+                    string result = doc.Name.Substring(lastSlashIndex+1, doc.Name.Length- (lastSlashIndex+1));
+                    int lastDashIndex = result.LastIndexOf(".");
+                    drawingName = result.Substring(0, lastDashIndex);
+                    string layoutName = LayoutManager.Current.CurrentLayout;
+                    var psv = PlotSettingsValidator.Current;
+                    transaction.Commit();
+
+                }
+                catch (System.Exception ex)
+                {
+                    edt.WriteMessage("Error encountered: " + ex.Message);
+                    transaction.Abort();
+                }
+            }
+        }
+
         [CommandMethod("drawingpline")]
         public void DrawingPline()
         {
