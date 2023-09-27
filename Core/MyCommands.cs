@@ -6,33 +6,92 @@ using Autodesk.AutoCAD.ApplicationServices;
 using Core.MyAutoCadAPI;
 using System.Collections.Generic;
 using Autodesk.AutoCAD.DatabaseServices;
+using System;
+using Autodesk.AutoCAD.PlottingServices;
 
 namespace Core
 {
     public class MyCommands
     {
         Provider provider = new Provider();
+        [CommandMethod("-SMXHYPERLINK")]
+        public void SMXHYPERLINK()
+        {
+            Document doc = Aaa.Application.DocumentManager.MdiActiveDocument;
+            Database db = doc.Database;
+            Editor edt = doc.Editor;
+            PromptKeywordOptions mainOption = new PromptKeywordOptions("");
+            mainOption.Message = "\nEnter an option";
+            mainOption.Keywords.Add("Remove");
+            mainOption.Keywords.Add("Insert");
+            //mainOption.AllowNone = false;
+            mainOption.Keywords.Default = "Insert";
+            PromptResult promptResult = doc.Editor.GetKeywords(mainOption);
+            if (promptResult.StringResult.Equals("Insert"))
+            {
+                PromptKeywordOptions insertOption = new PromptKeywordOptions("");
+                insertOption.Message = "\nEnter hyperlink insert option";
+                insertOption.Keywords.Add("Area");
+                insertOption.Keywords.Add("Object");
+                insertOption.Keywords.Default = "Object";
+                promptResult = doc.Editor.GetKeywords(insertOption);
+            }
+            if (promptResult.StringResult.Equals("Remove"))
+            {
+                PromptSelectionResult selectionResult = edt.GetSelection();
+
+                if (selectionResult.Status == PromptStatus.OK)
+                {
+                    using (Transaction transaction = doc.TransactionManager.StartTransaction())
+                    {
+                        SelectionSet selectionSet = selectionResult.Value;
+
+                        foreach (SelectedObject selectedObject in selectionSet)
+                        {
+                            if (selectedObject != null)
+                            {
+                                // Access the selected object
+                                ObjectId objectId = selectedObject.ObjectId;
+                                Entity entity = transaction.GetObject(objectId, OpenMode.ForRead) as Entity;
+
+                                if (entity != null)
+                                {
+                                    // You can perform operations on the selected object here
+                                    edt.WriteMessage("Selected object type: " + entity.GetType().Name + "\n");
+                                }
+                            }
+                        }
+
+                        transaction.Commit();
+                    }
+                }
+                else
+                {
+                    edt.WriteMessage("No objects selected.");
+                }
+            }
+        }
         [CommandMethod("getACadFields")]
         public void GetACadFields()
         {
             Document doc = Aaa.Application.DocumentManager.MdiActiveDocument;
             Database db = doc.Database;
             Editor edt = doc.Editor;
-            string drawingName = "";
-            string layoutname = "";
 
 
             using (Transaction transaction = db.TransactionManager.StartTransaction())
             {
                 try
                 {
-                    edt.WriteMessage($"\nGetProperties ACAD");
-                    int lastSlashIndex = doc.Name.LastIndexOf("\\");
-                    string result = doc.Name.Substring(lastSlashIndex+1, doc.Name.Length- (lastSlashIndex+1));
-                    int lastDashIndex = result.LastIndexOf(".");
-                    drawingName = result.Substring(0, lastDashIndex);
-                    string layoutName = LayoutManager.Current.CurrentLayout;
-                    var psv = PlotSettingsValidator.Current;
+                    var plotConfig = PlotConfigManager.SetCurrentConfig("None");
+                    var list = new List<string>();
+                    foreach (var item in plotConfig.CanonicalMediaNames)
+                    { 
+
+                        list.Add(plotConfig.GetLocalMediaName(item));
+                    }
+
+
                     transaction.Commit();
 
                 }
@@ -217,93 +276,5 @@ namespace Core
             
         }
 
-        //[CommandMethod("DeleteObjectOnClick")]
-        //public void DeleteObjectOnClick()
-        //{
-        //    Document doc =Aaa.Application.DocumentManager.MdiActiveDocument;
-        //    Editor editor = doc.Editor;
-
-        //    // Prompt the user to select an object to delete
-        //    PromptEntityOptions promptOptions = new PromptEntityOptions("\nSelect an object to delete: ");
-        //    promptOptions.SetRejectMessage("\nInvalid selection. Please select an object.");
-        //    promptOptions.AddAllowedClass(typeof(Line), true);
-
-        //    PromptEntityResult promptResult = editor.GetEntity(promptOptions);
-
-        //    if (promptResult.Status == PromptStatus.OK)
-        //    {
-        //        ObjectId objectId = promptResult.ObjectId;
-
-        //        // Start a transaction to delete the selected object
-        //        using (Transaction transaction = doc.Database.TransactionManager.StartTransaction())
-        //        {
-        //            Entity entityToDelete = transaction.GetObject(objectId, OpenMode.ForWrite) as Entity;
-
-        //            if (entityToDelete != null)
-        //            {
-        //                entityToDelete.Erase();
-        //                transaction.Commit();
-        //                editor.WriteMessage("\nThe selected object has been deleted.");
-        //            }
-        //            else
-        //            {
-        //                editor.WriteMessage("\nFailed to open the selected object.");
-        //            }
-        //        }
-        //    }
-        //    else
-        //    {
-        //        editor.WriteMessage("\nNo valid object selected for deletion.");
-        //    }
-        //}
-
-        //[CommandMethod("DeleteSelected")]
-        //public void DeleteSelected()
-        //{
-        //    Document doc =Aaa.Application.DocumentManager.MdiActiveDocument;
-        //    Editor editor = doc.Editor;
-
-        //    // Prompt the user to select objects to delete
-        //    PromptSelectionOptions selectionOptions = new PromptSelectionOptions();
-        //    selectionOptions.MessageForAdding = "Select objects to delete: ";
-
-        //    PromptSelectionResult selectionResult = editor.GetSelection(selectionOptions);
-
-        //    if (selectionResult.Status == PromptStatus.OK)
-        //    {
-        //        // Build a list of object IDs from the selection result
-        //        ObjectId[] objectIds = selectionResult.Value.GetObjectIds();
-
-        //        // Start a transaction
-        //        using (Transaction transaction = doc.Database.TransactionManager.StartTransaction())
-        //        {
-        //            foreach (ObjectId objectId in objectIds)
-        //            {
-        //                // Open each selected object for write
-        //                DBObject dbObject = transaction.GetObject(objectId, OpenMode.ForWrite);
-
-        //                // Ensure that the object is not null and can be erased
-        //                if (dbObject != null && dbObject.IsWriteEnabled)
-        //                {
-        //                    // Erase the object
-        //                    dbObject.Erase();
-        //                }
-        //            }
-
-        //            // Commit the transaction
-        //            transaction.Commit();
-
-        //            // Execute the "DELETE" command to remove deleted objects from the selection set
-        //            Aaa.Application.DocumentManager.MdiActiveDocument.SendStringToExecute("_DELETE\n", true, false, true);
-
-        //            // Optionally, you can also send the "_PURGE" command to purge deleted objects
-        //            // Application.DocumentManager.MdiActiveDocument.SendStringToExecute("_PURGE\n", true, false, true);
-        //        }
-        //    }
-        //    else
-        //    {
-        //        editor.WriteMessage("\nNo objects selected for deletion.");
-        //    }
-        //}
     }
 }
